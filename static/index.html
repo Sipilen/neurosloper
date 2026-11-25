@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Нейрослопер — Локальный генератор AI Slop</title>
+  <style>
+    :root {
+      --bg: #0e0f14;
+      --panel: #171923;
+      --panel-2: #1f2230;
+      --border: #2c3144;
+      --text: #eef1f7;
+      --muted: #9aa3b8;
+      --accent: #ff5e3a;
+      --accent-2: #ffb800;
+      --ok: #3ddc97;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at top right, #23192d 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 28px;
+      background: linear-gradient(90deg, #ff5e3a, #ffb800, #ff4fd8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    .title-wrap p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .gpu-badge {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 8px var(--ok);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 920px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 18px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: var(--panel-2);
+      margin-bottom: 16px;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent-2);
+      background: #25283a;
+    }
+
+    .dropzone strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .dropzone span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+      background: var(--panel-2);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .modes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      text-align: left;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-btn:hover { border-color: #4b5270; }
+
+    .mode-btn.active {
+      border-color: var(--accent);
+      background: rgba(255, 94, 58, 0.12);
+    }
+
+    .mode-btn .m-name {
+      font-weight: 600;
+      font-size: 14px;
+      display: block;
+    }
+
+    .mode-btn .m-desc {
+      font-size: 12px;
+      color: var(--muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    .control {
+      margin-bottom: 14px;
+    }
+
+    .control label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .video-params {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .video-params.visible { display: grid; }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: var(--accent-2);
+    }
+
+    .toggles {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-row input {
+      accent-color: var(--accent);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .seed-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .seed-row input { flex: 1; }
+
+    .btn-icon {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-icon:hover { border-color: var(--accent-2); }
+
+    .btn-primary {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(90deg, var(--accent), #ff8c00);
+      cursor: pointer;
+      transition: transform 0.1s, opacity 0.15s;
+    }
+
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 680px) {
+      .stage { grid-template-columns: 1fr; }
+    }
+
+    .img-box {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-height: 340px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .img-box-head {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .img-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      position: relative;
+    }
+
+    .img-wrap img, .img-wrap video {
+      max-width: 100%;
+      max-height: 480px;
+      border-radius: 8px;
+      object-fit: contain;
+      display: none;
+    }
+
+    .placeholder {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .actions-bar {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-secondary:hover:not(:disabled) { border-color: var(--accent-2); }
+    .btn-secondary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .meta-box {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      display: none;
+      line-height: 1.55;
+    }
+
+    .meta-box strong { color: var(--accent-2); }
+
+    .thoughts-list {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: #d7deed;
+    }
+
+    .thoughts-list li { margin: 3px 0; }
+
+    .history-wrap {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .history-grid {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .history-item {
+      position: relative;
+      flex: 0 0 88px;
+      height: 88px;
+      cursor: pointer;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--panel-2);
+      transition: border-color 0.15s;
+    }
+
+    .history-item:hover, .history-item.active {
+      border-color: var(--accent);
+    }
+
+    .history-item img, .history-item video {
+      width: 88px;
+      height: 88px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .history-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 6px;
+      padding: 2px 5px;
+      font-size: 10px;
+    }
+
+    .spinner {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(14, 15, 20, 0.72);
+      backdrop-filter: blur(3px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text);
+      text-align: center;
+      padding: 16px;
+    }
+
+    .spinner.visible { display: flex; }
+
+    .ring {
+      width: 34px;
+      height: 34px;
+      border: 3px solid rgba(255,255,255,0.18);
+      border-top-color: var(--accent-2);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-wrap">
+        <h1>Нейрослопер</h1>
+        <p>Загрузи нормальное фото — получи нейрослоп</p>
+      </div>
+      <div class="gpu-badge" id="gpuBadge">
+        <span class="dot"></span>
+        <span id="gpuText">Проверка GPU...</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="card">
+        <p class="section-title">1. Исходник</p>
+        <div class="dropzone" id="dropzone">
+          <strong>Перетащи фото сюда</strong>
+          <span>или кликни / нажми Ctrl+V</span>
+          <input type="file" id="fileInput" accept="image/*" hidden />
+        </div>
+
+        <p class="section-title">2. Что делаем</p>
+        <div class="tabs">
+          <button type="button" class="tab-btn active" id="tabPhoto">🖼 Фото-слоп</button>
+          <button type="button" class="tab-btn" id="tabVideo">🎬 Видео-слоп</button>
+        </div>
+
+        <div class="modes" id="modesList"></div>
+
+        <div class="video-params" id="videoParams">
+          <div class="control">
+            <label>
+              <span>Кадры</span>
+              <strong id="framesValue">20</strong>
+            </label>
+            <input type="range" id="numFrames" min="8" max="36" value="20" />
+          </div>
+          <div class="control">
+            <label>
+              <span>FPS</span>
+              <strong id="fpsValue">10</strong>
+            </label>
+            <input type="range" id="fpsInput" min="6" max="20" value="10" />
+          </div>
+        </div>
+
+        <div class="control">
+          <label>
+            <span>Уровень слопа</span>
+            <strong id="slopValue">65%</strong>
+          </label>
+          <input type="range" id="slopLevel" min="1" max="100" value="65" />
+        </div>
+
+        <div class="toggles">
+          <label class="toggle-row">
+            <input type="checkbox" id="jpegFry" />
+            <span>Пережать шакалами (JPEG-артефакты)</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="glitchShift" />
+            <span>Глитч-сдвиг RGB каналов и шум</span>
+          </label>
+        </div>
+
+        <div class="control">
+          <label for="customPrompt">
+            <span>Доп. теги (по желанию, EN)</span>
+          </label>
+          <input type="text" id="customPrompt" placeholder="например: laser eyes, golden chain, shrek" />
+        </div>
+
+        <div class="control">
+          <label for="seedInput">
+            <span>Seed (-1 = случайный)</span>
+          </label>
+          <div class="seed-row">
+            <input type="number" id="seedInput" value="-1" />
+            <button type="button" class="btn-icon" id="randomSeedBtn" title="Сбросить на случайный">🎲</button>
+            <button type="button" class="btn-icon" id="pinSeedBtn" title="Подставить последний seed">📌</button>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="runBtn" disabled>Заслопить фото</button>
+      </aside>
+
+      <main class="card">
+        <div class="stage">
+          <div class="img-box">
+            <div class="img-box-head">
+              <span>Было</span>
+              <span id="iterCounter"></span>
+            </div>
+            <div class="img-wrap">
+              <img id="origImg" alt="Оригинал" />
+              <div class="placeholder" id="origPlaceholder">Здесь появится загруженное фото</div>
+            </div>
+          </div>
+
+          <div class="img-box">
+            <div class="img-box-head">
+              <span>Стало (AI Slop)</span>
+              <span id="timeBadge"></span>
+            </div>
+            <div class="img-wrap">
+              <img id="resImg" alt="Результат" />
+              <video id="resVideo" controls autoplay loop muted playsinline></video>
+              <div class="placeholder" id="resPlaceholder">Нажми «Заслопить»</div>
+              <div class="spinner" id="spinner">
+                <div class="ring"></div>
+                <span id="spinnerText">Нейронка думает над хуйнёй...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn-secondary" id="reSlopBtn" disabled>♻️ Заслопить ещё раз</button>
+            <button class="btn-secondary" id="resetOrigBtn" disabled>↩️ Вернуться к исходнику</button>
+            <a class="btn-secondary" id="downloadBtn" href="#" download="slop.png" style="pointer-events:none; opacity:0.45;">⬇ Скачать</a>
+          </div>
+        </div>
+
+        <div class="meta-box" id="metaBox"></div>
+
+        <div class="history-wrap" id="historyWrap">
+          <p class="section-title" style="margin-top:4px;">История слопов (кликни, чтобы открыть)</p>
+          <div class="history-grid" id="historyGrid"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const tabPhoto = document.getElementById("tabPhoto");
+    const tabVideo = document.getElementById("tabVideo");
+    const modesList = document.getElementById("modesList");
+    const videoParams = document.getElementById("videoParams");
+    const numFrames = document.getElementById("numFrames");
+    const framesValue = document.getElementById("framesValue");
+    const fpsInput = document.getElementById("fpsInput");
+    const fpsValue = document.getElementById("fpsValue");
+    const slopLevel = document.getElementById("slopLevel");
+    const slopValue = document.getElementById("slopValue");
+    const jpegFry = document.getElementById("jpegFry");
+    const glitchShift = document.getElementById("glitchShift");
+    const customPrompt = document.getElementById("customPrompt");
+    const seedInput = document.getElementById("seedInput");
+    const randomSeedBtn = document.getElementById("randomSeedBtn");
+    const pinSeedBtn = document.getElementById("pinSeedBtn");
+    const runBtn = document.getElementById("runBtn");
+    const reSlopBtn = document.getElementById("reSlopBtn");
+    const resetOrigBtn = document.getElementById("resetOrigBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const origImg = document.getElementById("origImg");
+    const origPlaceholder = document.getElementById("origPlaceholder");
+    const resImg = document.getElementById("resImg");
+    const resVideo = document.getElementById("resVideo");
+    const resPlaceholder = document.getElementById("resPlaceholder");
+    const spinner = document.getElementById("spinner");
+    const spinnerText = document.getElementById("spinnerText");
+    const metaBox = document.getElementById("metaBox");
+    const timeBadge = document.getElementById("timeBadge");
+    const iterCounter = document.getElementById("iterCounter");
+    const gpuText = document.getElementById("gpuText");
+    const historyWrap = document.getElementById("historyWrap");
+    const historyGrid = document.getElementById("historyGrid");
+
+    let initialBlob = null;
+    let currentBlob = null;
+    let activeTab = "photo";
+    let photoModes = [];
+    let videoModes = [];
+    let selectedPhotoMode = "total_bs";
+    let selectedVideoMode = "morph_brainrot";
+    let iteration = 0;
+    let lastSeed = -1;
+    const history = [];
+
+    slopLevel.addEventListener("input", () => {
+      slopValue.textContent = `${slopLevel.value}%`;
+    });
+    numFrames.addEventListener("input", () => {
+      framesValue.textContent = numFrames.value;
+    });
+    fpsInput.addEventListener("input", () => {
+      fpsValue.textContent = fpsInput.value;
+    });
+
+    randomSeedBtn.addEventListener("click", () => {
+      seedInput.value = "-1";
+    });
+
+    pinSeedBtn.addEventListener("click", () => {
+      if (lastSeed >= 0) seedInput.value = String(lastSeed);
+    });
+
+    function renderModes() {
+      const list = activeTab === "photo" ? photoModes : videoModes;
+      const currentSelected = activeTab === "photo" ? selectedPhotoMode : selectedVideoMode;
+      modesList.innerHTML = "";
+      list.forEach((m, idx) => {
+        const isActive = m.id === currentSelected || (!currentSelected && idx === 0);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "mode-btn" + (isActive ? " active" : "");
+        btn.innerHTML = `<span class="m-name">${m.name}</span><span class="m-desc">${m.description}</span>`;
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          if (activeTab === "photo") {
+            selectedPhotoMode = m.id;
+          } else {
+            selectedVideoMode = m.id;
+            numFrames.max = m.engine === "animatediff" ? 32 : 40;
+            numFrames.value = m.default_frames;
+            framesValue.textContent = m.default_frames;
+            fpsInput.value = m.default_fps;
+            fpsValue.textContent = m.default_fps;
+          }
+        });
+        modesList.appendChild(btn);
+      });
+
+      videoParams.classList.toggle("visible", activeTab === "video");
+      runBtn.textContent = activeTab === "photo" ? "Заслопить фото" : "Сделать видео-слоп 🎬";
+    }
+
+    tabPhoto.addEventListener("click", () => {
+      activeTab = "photo";
+      tabPhoto.classList.add("active");
+      tabVideo.classList.remove("active");
+      renderModes();
+    });
+
+    tabVideo.addEventListener("click", () => {
+      activeTab = "video";
+      tabVideo.classList.add("active");
+      tabPhoto.classList.remove("active");
+      renderModes();
+    });
+
+    async function loadStatus() {
+      try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        const eng = data.engine;
+        gpuText.textContent = eng.gpu_name
+          ? `${eng.gpu_name} (${eng.vram_gb} GB) • ${eng.sd_model_id}`
+          : `CPU • ${eng.sd_model_id}`;
+
+        photoModes = data.modes || [];
+        videoModes = data.video_modes || [];
+        if (photoModes.length > 0) selectedPhotoMode = photoModes[0].id;
+        if (videoModes.length > 0) selectedVideoMode = videoModes[0].id;
+        renderModes();
+      } catch (err) {
+        gpuText.textContent = "Ошибка подключения к серверу";
+      }
+    }
+
+    function setSourceBlob(blob, isNewOriginal = true) {
+      currentBlob = blob;
+      if (isNewOriginal) {
+        initialBlob = blob;
+        iteration = 0;
+      }
+      resetOrigBtn.disabled = !initialBlob || currentBlob === initialBlob;
+      iterCounter.textContent = iteration > 0 ? `Итерация #${iteration}` : "";
+      const url = URL.createObjectURL(blob);
+      origImg.src = url;
+      origImg.style.display = "block";
+      origPlaceholder.style.display = "none";
+      runBtn.disabled = false;
+    }
+
+    dropzone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files[0]) setSourceBlob(e.target.files[0], true);
+    });
+
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith("image/")) setSourceBlob(file, true);
+    });
+
+    window.addEventListener("paste", (e) => {
+      const items = e.clipboardData?.items || [];
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          setSourceBlob(item.getAsFile(), true);
+          break;
+        }
+      }
+    });
+
+    function showResult(data) {
+      resPlaceholder.style.display = "none";
+      timeBadge.textContent = `${(data.elapsed_ms / 1000).toFixed(2)} сек`;
+      lastSeed = data.seed;
+
+      if (data.kind === "video") {
+        resImg.style.display = "none";
+        resVideo.src = data.video_data_url;
+        resVideo.style.display = "block";
+        resVideo.play().catch(() => {});
+        downloadBtn.href = data.video_data_url;
+        downloadBtn.download = "slop.mp4";
+        downloadBtn.textContent = "⬇ Скачать MP4";
+        reSlopBtn.disabled = true;
+      } else {
+        resVideo.pause();
+        resVideo.style.display = "none";
+        resImg.src = data.image_data_url;
+        resImg.style.display = "block";
+        downloadBtn.href = data.image_data_url;
+        downloadBtn.download = "slop.png";
+        downloadBtn.textContent = "⬇ Скачать PNG";
+        reSlopBtn.disabled = false;
+      }
+
+      downloadBtn.style.pointerEvents = "auto";
+      downloadBtn.style.opacity = "1";
+
+      let metaHtml = data.kind === "video"
+        ? `Режим: <strong>${data.mode_name}</strong> • кадров: <strong>${data.frames}</strong> (${data.fps} fps) • strength: <strong>${data.strength}</strong> • seed: <strong>${data.seed}</strong>`
+        : `Режим: <strong>${data.mode_name}</strong> • strength: <strong>${data.strength}</strong> • шагов: <strong>${data.steps}</strong> • seed: <strong>${data.seed}</strong>`;
+
+      if (Array.isArray(data.thoughts) && data.thoughts.length > 0) {
+        const items = data.thoughts.map(t => `<li>${t}</li>`).join("");
+        metaHtml += `<ul class="thoughts-list">${items}</ul>`;
+      } else if (data.caption) {
+        metaHtml += `<br>Тупая нейронка увидела на фото: <strong>«${data.caption}»</strong>`;
+      }
+      metaBox.innerHTML = metaHtml;
+      metaBox.style.display = "block";
+    }
+
+    function renderHistory() {
+      if (history.length === 0) {
+        historyWrap.style.display = "none";
+        return;
+      }
+      historyWrap.style.display = "block";
+      historyGrid.innerHTML = "";
+      history.forEach((item, idx) => {
+        const card = document.createElement("div");
+        card.className = "history-item" + (idx === 0 ? " active" : "");
+        card.title = `${item.mode_name} • seed ${item.seed}`;
+        if (item.kind === "video") {
+          card.innerHTML = `<video src="${item.video_data_url}" muted loop autoplay playsinline></video><span class="history-badge">🎬</span>`;
+        } else {
+          card.innerHTML = `<img src="${item.image_data_url}" alt="slop" />`;
+        }
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".history-item").forEach(el => el.classList.remove("active"));
+          card.classList.add("active");
+          showResult(item);
+        });
+        historyGrid.appendChild(card);
+      });
+    }
+
+    async function runSlop() {
+      if (!currentBlob) return;
+      runBtn.disabled = true;
+      reSlopBtn.disabled = true;
+      spinnerText.textContent = activeTab === "video"
+        ? (selectedVideoMode === "animatediff"
+            ? "AnimateDiff рендерит видео (при первом запуске качает модели)..."
+            : "Рендерим морфинг-видео...")
+        : "Нейронка думает над хуйнёй...";
+      spinner.classList.add("visible");
+
+      const form = new FormData();
+      form.append("file", currentBlob, "input.png");
+      form.append("slop_level", slopLevel.value);
+      form.append("custom_prompt", customPrompt.value);
+      form.append("seed", seedInput.value || "-1");
+      form.append("jpeg_fry", jpegFry.checked ? "true" : "false");
+      form.append("glitch_shift", glitchShift.checked ? "true" : "false");
+
+      let endpoint = "/api/slopify";
+      if (activeTab === "video") {
+        endpoint = "/api/slopify-video";
+        form.append("video_mode", selectedVideoMode);
+        form.append("num_frames", numFrames.value);
+        form.append("fps", fpsInput.value);
+      } else {
+        form.append("mode", selectedPhotoMode);
+      }
+
+      try {
+        const res = await fetch(endpoint, { method: "POST", body: form });
+        const rawText = await res.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(rawText || `Ошибка сервера (${res.status})`);
+        }
+        if (!res.ok) throw new Error(data.detail || `Ошибка генерации (${res.status})`);
+
+        data.kind = activeTab;
+        if (activeTab === "photo") {
+          iteration += 1;
+          iterCounter.textContent = `Итерация #${iteration}`;
+        }
+        showResult(data);
+
+        history.unshift(data);
+        if (history.length > 8) history.pop();
+        renderHistory();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        spinner.classList.remove("visible");
+        runBtn.disabled = false;
+      }
+    }
+
+    runBtn.addEventListener("click", runSlop);
+
+    reSlopBtn.addEventListener("click", async () => {
+      if (!resImg.src || resImg.style.display === "none") return;
+      const resp = await fetch(resImg.src);
+      const blob = await resp.blob();
+      setSourceBlob(blob, false);
+      runSlop();
+    });
+
+    resetOrigBtn.addEventListener("click", () => {
+      if (initialBlob) setSourceBlob(initialBlob, true);
+    });
+
+    loadStatus();
+  </script>
+</body>
+</html>
